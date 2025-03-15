@@ -416,7 +416,7 @@ static LIBDIVIDE_INLINE int16_t libdivide_count_leading_zeros16(uint16_t val) {
     // Fast way to count leading zeros
     // On the AVR 8-bit architecture __builtin_clz() works on a int16_t.
     return __builtin_clz(val);
-#elif defined(__GNUC__) || __has_builtin(__builtin_clz) || defined(LIBDIVIDE_VC)
+#elif defined(__GNUC__) || __has_builtin(__builtin_clz) || defined(_MSC_VER)
     // Fast way to count leading zeros
     return (int16_t)(__builtin_clz(val) - 16);
 #else
@@ -439,7 +439,7 @@ static LIBDIVIDE_INLINE int32_t libdivide_count_leading_zeros32(uint32_t val) {
 #if defined(__AVR__)
     // Fast way to count leading zeros
     return __builtin_clzl(val);
-#elif defined(__GNUC__) || __has_builtin(__builtin_clz) || defined(LIBDIVIDE_VC)
+#elif defined(__GNUC__) || __has_builtin(__builtin_clz) || defined(_MSC_VER)
     // Fast way to count leading zeros
     return __builtin_clz(val);
 #else
@@ -459,7 +459,7 @@ static LIBDIVIDE_INLINE int32_t libdivide_count_leading_zeros32(uint32_t val) {
 }
 
 static LIBDIVIDE_INLINE int32_t libdivide_count_leading_zeros64(uint64_t val) {
-#if defined(__GNUC__) || __has_builtin(__builtin_clzll) || defined(LIBDIVIDE_VC)
+#if defined(__GNUC__) || __has_builtin(__builtin_clzll) || defined(_MSC_VER)
     // Fast way to count leading zeros
     return __builtin_clzll(val);
 #else
