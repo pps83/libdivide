@@ -72,8 +72,8 @@
 
 #if defined(__SIZEOF_INT128__)
 #define HAS_INT128_T
-// clang-cl on Windows does not yet support 128-bit division
-#if !(defined(__clang__) && defined(LIBDIVIDE_VC))
+// clang-cl on Windows does not yet support 128-bit division, while Intel compiler does support
+#if !(defined(__clang__) && defined(LIBDIVIDE_VC) && !defined(__INTEL_LLVM_COMPILER))
 #define HAS_INT128_DIV
 #endif
 #endif
