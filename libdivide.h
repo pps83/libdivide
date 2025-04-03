@@ -101,15 +101,21 @@
 // We need both the attribute and keyword to avoid "might not be inlineable" warnings.
 #ifdef __has_attribute
 #if __has_attribute(always_inline)
-#define LIBDIVIDE_INLINE __attribute__((always_inline)) inline
+#define LIBDIVIDE_INLINE_ __attribute__((always_inline)) inline
 #endif
 #endif
-#ifndef LIBDIVIDE_INLINE
+#ifndef LIBDIVIDE_INLINE_
 #ifdef _MSC_VER
-#define LIBDIVIDE_INLINE __forceinline
+#define LIBDIVIDE_INLINE_ __forceinline
 #else
-#define LIBDIVIDE_INLINE inline
+#define LIBDIVIDE_INLINE_ inline
 #endif
+#endif
+
+#if defined(LIBDIVIDE_CXX20)
+#define LIBDIVIDE_INLINE constexpr LIBDIVIDE_INLINE_
+#else
+#define LIBDIVIDE_INLINE LIBDIVIDE_INLINE_
 #endif
 
 #if defined(__AVR__) || __STDC_HOSTED__ == 0
@@ -137,11 +143,13 @@
 
 #ifdef __cplusplus
 
+#if defined(LIBDIVIDE_CXX20)
+#define LIBDIVIDE_CONSTEXPR LIBDIVIDE_INLINE
 // For constexpr zero initialization, c++11 might handle things ok,
 // but just limit to at least c++14 to ensure we don't break anyone's code:
 
 // Use https://en.cppreference.com/w/cpp/feature_test#cpp_constexpr
-#if defined(__cpp_constexpr) && (__cpp_constexpr >= 201304L)
+#elif defined(__cpp_constexpr) && (__cpp_constexpr >= 201304L)
 #define LIBDIVIDE_CONSTEXPR constexpr LIBDIVIDE_INLINE
 
 // Supposedly, MSVC might not implement feature test macros right:
@@ -160,17 +168,13 @@ namespace libdivide {
 #endif
 
 #if defined(_MSC_VER) && !defined(__clang__)
-#if defined(LIBDIVIDE_CXX20)
-static LIBDIVIDE_CONSTEXPR int __builtin_clz(unsigned x) {
+static LIBDIVIDE_INLINE int __builtin_clz(unsigned x) {
     if (LIBDIVIDE_CONSTEVAL) {
         for (int i = 0; i < sizeof(x) * CHAR_BIT; ++i) {
             if (x >> (sizeof(x) * CHAR_BIT - 1 - i)) return i;
         }
         return sizeof(x) * CHAR_BIT;
     }
-#else
-static LIBDIVIDE_INLINE int __builtin_clz(unsigned x) {
-#endif
 #if defined(_M_ARM) || defined(_M_ARM64) || defined(_M_HYBRID_X86_ARM64) || defined(_M_ARM64EC)
     return (int)_CountLeadingZeros(x);
 #elif defined(__AVX2__) || defined(__LZCNT__)
@@ -182,17 +186,13 @@ static LIBDIVIDE_INLINE int __builtin_clz(unsigned x) {
 #endif
 }
 
-#if defined(LIBDIVIDE_CXX20)
-static LIBDIVIDE_CONSTEXPR int __builtin_clzll(unsigned long long x) {
+static LIBDIVIDE_INLINE int __builtin_clzll(unsigned long long x) {
     if (LIBDIVIDE_CONSTEVAL) {
         for (int i = 0; i < sizeof(x) * CHAR_BIT; ++i) {
             if (x >> (sizeof(x) * CHAR_BIT - 1 - i)) return i;
         }
         return sizeof(x) * CHAR_BIT;
     }
-#else
-static LIBDIVIDE_INLINE int __builtin_clzll(unsigned long long x) {
-#endif
 #if defined(_M_ARM) || defined(_M_ARM64) || defined(_M_HYBRID_X86_ARM64) || defined(_M_ARM64EC)
     return (int)_CountLeadingZeros64(x);
 #elif defined(_WIN64)
@@ -421,12 +421,16 @@ static LIBDIVIDE_INLINE int32_t libdivide_mullhi_s32(int32_t x, int32_t y) {
 
 static LIBDIVIDE_INLINE uint64_t libdivide_mullhi_u64(uint64_t x, uint64_t y) {
 #if defined(LIBDIVIDE_MULH_INTRINSICS)
-    return __umulh(x, y);
+    if (!LIBDIVIDE_CONSTEVAL)
+        return __umulh(x, y);
 #elif defined(HAS_INT128_T)
-    __uint128_t xl = x, yl = y;
-    __uint128_t rl = xl * yl;
-    return (uint64_t)(rl >> 64);
-#else
+    if (!LIBDIVIDE_CONSTEVAL)
+    {
+        __uint128_t xl = x, yl = y;
+        __uint128_t rl = xl * yl;
+        return (uint64_t)(rl >> 64);
+    }
+#endif
     // full 128 bits are x0 * y0 + (x0 * y1 << 32) + (x1 * y0 << 32) + (x1 * y1 << 64)
     uint32_t mask = 0xFFFFFFFF;
     uint32_t x0 = (uint32_t)(x & mask);
@@ -442,17 +446,20 @@ static LIBDIVIDE_INLINE uint64_t libdivide_mullhi_u64(uint64_t x, uint64_t y) {
     uint64_t temp_hi = temp >> 32;
 
     return x1y1 + temp_hi + ((temp_lo + x0y1) >> 32);
-#endif
 }
 
 static LIBDIVIDE_INLINE int64_t libdivide_mullhi_s64(int64_t x, int64_t y) {
 #if defined(LIBDIVIDE_MULH_INTRINSICS)
-    return __mulh(x, y);
+    if (!LIBDIVIDE_CONSTEVAL)
+        return __mulh(x, y);
 #elif defined(HAS_INT128_T)
-    __int128_t xl = x, yl = y;
-    __int128_t rl = xl * yl;
-    return (int64_t)(rl >> 64);
-#else
+    if (!LIBDIVIDE_CONSTEVAL)
+    {
+        __int128_t xl = x, yl = y;
+        __int128_t rl = xl * yl;
+        return (int64_t)(rl >> 64);
+    }
+#endif
     // full 128 bits are x0 * y0 + (x0 * y1 << 32) + (x1 * y0 << 32) + (x1 * y1 << 64)
     uint32_t mask = 0xFFFFFFFF;
     uint32_t x0 = (uint32_t)(x & mask);
@@ -464,7 +471,6 @@ static LIBDIVIDE_INLINE int64_t libdivide_mullhi_s64(int64_t x, int64_t y) {
     int64_t w1 = x0 * (int64_t)y1 + (t & mask);
 
     return x1 * (int64_t)y1 + (t >> 32) + (w1 >> 32);
-#endif
 }
 
 static LIBDIVIDE_INLINE int16_t libdivide_count_leading_zeros16(uint16_t val) {
@@ -543,15 +549,17 @@ static LIBDIVIDE_INLINE uint16_t libdivide_32_div_16_to_16(
 static LIBDIVIDE_INLINE uint32_t libdivide_64_div_32_to_32(
     uint32_t u1, uint32_t u0, uint32_t v, uint32_t *r) {
 #if (defined(LIBDIVIDE_i386) || defined(LIBDIVIDE_X86_64)) && defined(LIBDIVIDE_GCC_STYLE_ASM)
-    uint32_t result;
-    __asm__("divl %[v]" : "=a"(result), "=d"(*r) : [v] "r"(v), "a"(u0), "d"(u1));
-    return result;
-#else
+    if (!LIBDIVIDE_CONSTEVAL)
+    {
+        uint32_t result;
+        __asm__("divl %[v]" : "=a"(result), "=d"(*r) : [v] "r"(v), "a"(u0), "d"(u1));
+        return result;
+    }
+#endif
     uint64_t n = ((uint64_t)u1 << 32) | u0;
     uint32_t result = (uint32_t)(n / v);
     *r = (uint32_t)(n - result * (uint64_t)v);
     return result;
-#endif
 }
 
 // libdivide_128_div_64_to_64: divides a 128-bit uint {numhi, numlo} by a 64-bit uint {den}. The
@@ -563,10 +571,13 @@ static LIBDIVIDE_INLINE uint64_t libdivide_128_div_64_to_64(
     // necessary. In gcc it's better but still slower than the divlu implementation, perhaps because
     // it's not LIBDIVIDE_INLINEd.
 #if defined(LIBDIVIDE_X86_64) && defined(LIBDIVIDE_GCC_STYLE_ASM)
-    uint64_t result;
-    __asm__("div %[v]" : "=a"(result), "=d"(*r) : [v] "r"(den), "a"(numlo), "d"(numhi));
-    return result;
-#else
+    if (!LIBDIVIDE_CONSTEVAL)
+    {
+        uint64_t result;
+        __asm__("div %[v]" : "=a"(result), "=d"(*r) : [v] "r"(den), "a"(numlo), "d"(numhi));
+        return result;
+    }
+#endif
     // We work in base 2**32.
     // A uint32 holds a single digit. A uint64 holds two digits.
     // Our numerator is conceptually [num3, num2, num1, num0].
@@ -648,7 +659,6 @@ static LIBDIVIDE_INLINE uint64_t libdivide_128_div_64_to_64(
     // Return remainder if requested.
     if (r) *r = (rem * b + num0 - q0 * den) >> shift;
     return ((uint64_t)q1 << 32) | q0;
-#endif
 }
 
 #if !(defined(HAS_INT128_T) && \
