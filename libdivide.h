@@ -64,7 +64,6 @@
 // 4204: nonstandard extension used : non-constant aggregate initializer
 #pragma warning(disable : 4204)
 #endif
-#define LIBDIVIDE_VC
 #endif
 
 #if !defined(__has_builtin)
@@ -73,9 +72,16 @@
 
 #if defined(__SIZEOF_INT128__)
 #define HAS_INT128_T
-// clang-cl on Windows does not yet support 128-bit division, while Intel compiler does support
-#if !(defined(__clang__) && defined(LIBDIVIDE_VC) && !defined(__INTEL_LLVM_COMPILER))
 #define HAS_INT128_DIV
+// clang-cl/icx on Windows need to link to clang_rt.builtins to support 128-bit division
+#if defined(__clang__) && defined(_MSC_VER)
+#if defined(_M_X64)
+#pragma comment(lib, "clang_rt.builtins-x86_64.lib")
+#elif defined(_M_IX86)
+#pragma comment(lib, "clang_rt.builtins-i386.lib")
+#elif defined(__aarch64__)
+#pragma comment(lib, "clang_rt.builtins-aarch64.lib")
+#endif
 #endif
 #endif
 
@@ -91,7 +97,7 @@
 #define LIBDIVIDE_GCC_STYLE_ASM
 #endif
 
-#if defined(__cplusplus) || defined(LIBDIVIDE_VC)
+#if defined(__cplusplus) || defined(_MSC_VER)
 #define LIBDIVIDE_FUNCTION __FUNCTION__
 #else
 #define LIBDIVIDE_FUNCTION __func__
